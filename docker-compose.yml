@@ -1,0 +1,20 @@
+version:'3.9'
+services:
+ postgres:
+  image: postgres:16
+  environment:
+   POSTGRES_USER: payment
+   POSTGRES_PASSWORD: payment
+   POSTGRES_DB: paymentdb
+  ports: ["5432:5432"]
+ redis:
+  image: redis:7
+  ports: ["6379:6379"]
+ zookeeper:
+  image: confluentinc/cp-zookeeper:7.5.0
+  environment:
+   ZOOKEEPER_CLIENT_PORT:2181
+ kafka:
+  image: confluentinc/cp-kafka:7.5.0
+  depends_on:[zookeeper]
+  ports:["9092:9092"]
