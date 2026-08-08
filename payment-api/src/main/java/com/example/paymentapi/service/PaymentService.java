@@ -1,21 +1,29 @@
-
 package com.example.paymentapi.service;
 
-import org.springframework.scheduling.annotation.Async;
+import com.example.paymentapi.model.Payment;
+import com.example.paymentapi.repository.PaymentRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PaymentService {
-    @Async("paymentExecutor")
-    public void process(String id) {
-        try {
-            System.out.println(Thread.currentThread().getName() + " processing " + id);
-            Thread.sleep((long) (Math.random() * 3000));
-            if (Math.random() > 0.8) Thread.sleep(30000);
-            System.out.println("Bank approved " + id);
-            System.out.println("Publishing Kafka event (stub)");
-        } catch (Exception e) {
-            Thread.currentThread().interrupt();
-        }
+    private final PaymentRepository repository;
+    private final PaymentProcessor processor;
+
+    public PaymentService(PaymentRepository repository, PaymentProcessor processor) {
+        this.repository = repository;
+        this.processor = processor;
+    }
+
+    public Payment create(java.math.BigDecimal amount) {
+        Payment payment = repository.save(
+                new Payment(java.util.UUID.randomUUID().toString(), amount));
+        processor.process(payment.getId());
+        return payment;
+    }
+
+    @Transactional(readOnly = true)
+    public Payment get(String id) {
+        return repository.findById(id).orElseThrow();
     }
 }

@@ -1,0 +1,88 @@
+Phase 1 = Infrastructure
+Phase 2 = Spring Boot services
+Phase 3 = Concurrency / async processing
+Phase 4 = Real payment + Kafka flow
+Phase 5 = Production monitoring & incident simulation
+
+                    PHASE 1
+                    ────────────────────────────────────────────
+
+                              Infrastructure
+                                   │
+                         ┌─────────┼─────────┐
+                         ▼         ▼         ▼
+                     PostgreSQL   Redis     Kafka
+                                             │
+                                          ZooKeeper
+
+
+                    PHASE 2
+                    ────────────────────────────────────────────
+
+                                  Spring Boot
+                                      │
+                                 payment-api
+                                      │
+                           ┌──────────┼──────────┐
+                           ▼          ▼          ▼
+                       PostgreSQL   Kafka      Redis
+                                      │
+                           ┌──────────┴──────────┐
+                           ▼                     ▼
+                    bank-simulator       notification-service
+
+
+                    PHASE 3
+                    ────────────────────────────────────────────
+
+                    Client
+                      │
+                      ▼
+                    Payment API
+                      │
+                      ▼
+                    @Async
+                      │
+                      ▼
+                    ThreadPoolTaskExecutor
+                      │
+                      ├── payment-1
+                      ├── payment-2
+                      ├── payment-3
+                      ├── ...
+                      │
+                      ▼
+                    Bank Simulator
+                      │
+                      ▼
+                    Payment processing
+                      │
+                      ▼
+                    Kafka
+
+
+                    PHASE 4 — CURRENT
+                    ────────────────────────────────────────────
+
+                    Client
+                      │
+                      ▼
+                    Payment API
+                      │
+                      ▼
+                    PaymentService
+                      │
+                      ▼
+                    Async Thread Pool
+                      │
+                      ▼
+                    Bank Simulator
+                      │
+                      ▼
+                    PostgreSQL
+                      │
+                      ▼
+                    Kafka
+                      │
+                      ▼
+                    Notification Service
