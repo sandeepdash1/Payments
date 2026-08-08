@@ -1,0 +1,34 @@
+groups:
+  - name: payment-platform
+    rules:
+      - alert: PaymentApiHighErrorRate
+        expr: |
+          (
+            sum(rate(http_server_requests_seconds_count{job="payment-api",status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(http_server_requests_seconds_count{job="payment-api"}[5m])), 0.001)
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Payment API 5xx error rate is above 5%
+
+      - alert: PaymentExecutorQueueGrowing
+        expr: executor_queued{job="payment-api",name="payment.executor"} > 400
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Payment executor queue is approaching capacity
+
+      - alert: HikariPoolSaturation
+        expr: |
+          hikaricp_connections_pending{job="payment-api"} > 0
+          and
+          hikaricp_connections_active{job="payment-api"} >= hikaricp_connections_max{job="payment-api"}
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Payment API HikariCP pool is saturated
