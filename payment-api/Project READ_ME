@@ -1,0 +1,219 @@
+Phase 1 — Infrastructure & Project Foundation
+---------------------------------------------
+                                Payment Platform
+                                      │
+                                      ▼
+                            ┌───────────────────┐
+                            │   Maven Parent    │
+                            │ payment-platform  │
+                            └─────────┬─────────┘
+                                      │
+                      ┌───────────────┼────────────────┐
+                      ▼               ▼                ▼
+                  common         payment-api     bank-simulator
+                      │
+                      └──────────────────────┐
+                                             ▼
+                                   notification-service
+
+
+                          Docker Compose Infrastructure
+                          ──────────────────────────────
+
+                    ┌─────────────┐
+                    │ PostgreSQL  │
+                    │   :5432     │
+                    └─────────────┘
+
+                    ┌─────────────┐
+                    │    Redis    │
+                    │   :6379     │
+                    └─────────────┘
+
+                    ┌─────────────┐
+                    │   Kafka     │
+                    │   :9092     │
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+                    │  ZooKeeper  │
+                    │   :2181     │
+                    └─────────────┘
+
+                    Phase 1 purpose
+
+                    The goal was not yet to process payments.
+
+                    We established the foundation:
+
+                    Maven multi-module
+                           +
+                    Docker infrastructure
+                           +
+                    PostgreSQL
+                           +
+                    Redis
+                           +
+                    Kafka
+
+Phase 2 — Spring Boot Service Foundation
+----------------------------------------
+
+                                           Client
+                                             │
+                                             ▼
+                                    ┌─────────────────┐
+                                    │   payment-api   │
+                                    │     :8080       │
+                                    └────────┬────────┘
+                                             │
+                                             │
+                              ┌──────────────┼──────────────┐
+                              │              │              │
+                              ▼              ▼              ▼
+                         PostgreSQL        Kafka          Redis
+                           :5432           :9092           :6379
+
+
+                           ┌──────────────────────┐
+                           │   bank-simulator     │
+                           │        :8081         │
+                           └──────────────────────┘
+
+                           ┌──────────────────────┐
+                           │ notification-service │
+                           │        :8082         │
+                           └──────────────────────┘
+Phase 2 purpose
+
+The objective was:
+
+"Make each component a real Spring Boot service and connect it to the infrastructure."
+
+At this stage, however, the actual payment processing wasn't fully implemented.
+
+Phase 3 — Concurrency & Asynchronous Processing
+-----------------------------------------------
+
+                                                 Client
+                                                   │
+                                                   │ POST /payments
+                                                   ▼
+                                         ┌───────────────────┐
+                                         │   Payment API     │
+                                         │      :8080        │
+                                         └─────────┬─────────┘
+                                                   │
+                                                   ▼
+                                         ┌───────────────────┐
+                                         │ PaymentController │
+                                         └─────────┬─────────┘
+                                                   │
+                                                   ▼
+                                         ┌───────────────────┐
+                                         │  PaymentService   │
+                                         └─────────┬─────────┘
+                                                   │
+                                                   │ @Async
+                                                   ▼
+                                      ┌─────────────────────────┐
+                                      │ ThreadPoolTaskExecutor  │
+                                      │                         │
+                                      │ Core threads: 10        │
+                                      │ Max threads: 100        │
+                                      │ Queue: 500              │
+                                      │                         │
+                                      │ payment-1               │
+                                      │ payment-2               │
+                                      │ payment-3               │
+                                      │ ...                     │
+                                      └────────────┬────────────┘
+                                                   │
+                                                   ▼
+                                          ┌─────────────────┐
+                                          │  Bank Simulator │
+                                          │                 │
+                                          │ Random latency  │
+                                          │ 200ms → 3 sec   │
+                                          │                 │
+                                          │ Occasionally    │
+                                          │ 30 sec delay    │
+                                          └────────┬────────┘
+                                                   │
+                                                   ▼
+                                               Processing
+                                                   │
+                                                   ▼
+                                            Kafka Event
+                                               (stub)
+
+
+                                          Spring Boot
+                                               │
+                                               ▼
+                                          Actuator
+                                               │
+                              ┌────────────────┼────────────────┐
+                              ▼                ▼                ▼
+                           /health          /metrics        /threaddump
+                                               │
+                                               ▼
+                                       Thread / JVM metrics
+
+
+  PHASE 4 :->
+---------------
+
+                POST /payments
+                       │
+                       ▼
+               ┌──────────────┐
+               │ payment-api  │
+               └──────┬───────┘
+                      │
+                 Async thread
+                      │
+                      ▼
+              ┌──────────────┐
+              │     Bank     │
+              │  Simulator   │
+              └──────┬───────┘
+                     │
+                  SUCCESS
+                     │
+                     ▼
+               PostgreSQL
+                     │
+                     ▼
+                   Kafka
+              payment-events
+                     │
+                     ▼
+          ┌─────────────────────┐
+          │ notification-service│
+          └─────────────────────┘
+                     │
+                     ▼
+          Notification received
+
+  PHASE 5:->
+----------------
+                               Grafana
+                                  ▲
+                                  │
+                              Prometheus
+                                  ▲
+                                  │
+                            Micrometer
+                                  ▲
+                                  │
+            ┌─────────────────────┴────────────────────┐
+            │                                          │
+           Payment API                            Kafka
+            │                                          │
+            ├── JVM metrics                       Consumer metrics
+            ├── Thread metrics                    Producer metrics
+            ├── Executor metrics                  Consumer lag
+            ├── HTTP metrics
+            ├── HikariCP metrics
+            └── Custom payment metrics

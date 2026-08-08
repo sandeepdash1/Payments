@@ -1,6 +1,7 @@
 package com.example.banksimulator;
 
 import org.springframework.web.bind.annotation.*;
+
 import java.math.BigDecimal;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -14,6 +15,10 @@ public class BankController {
         boolean approved = ThreadLocalRandom.current().nextInt(100) < 95;
         return new BankResponse(request.paymentId(), approved, approved ? "APPROVED" : "DECLINED");
     }
-    public record BankRequest(String paymentId, BigDecimal amount) {}
-    public record BankResponse(String paymentId, boolean approved, String message) {}
+
+    public record BankRequest(String paymentId, BigDecimal amount) {
+    }
+
+    public record BankResponse(String paymentId, boolean approved, String message) {
+    }
 }
