@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: payment-api
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["payment-api:8080"]
+
+  - job_name: bank-simulator
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["bank-simulator:8081"]
+
+  - job_name: notification-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["notification-service:8082"]
