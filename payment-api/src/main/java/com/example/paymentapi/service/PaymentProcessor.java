@@ -10,6 +10,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 @Service
 public class PaymentProcessor {
     private final PaymentRepository repository;
@@ -17,7 +19,7 @@ public class PaymentProcessor {
     private final KafkaTemplate<String, PaymentEvent> kafkaTemplate;
     private final Counter successCounter;
     private final Counter failureCounter;
-    private final Counter processingCounter;
+    private final AtomicInteger processingGauge = new AtomicInteger();
     private final Timer processingTimer;
 
     public PaymentProcessor(PaymentRepository repository, BankClient bankClient,
@@ -28,14 +30,14 @@ public class PaymentProcessor {
         this.kafkaTemplate = kafkaTemplate;
         this.successCounter = meterRegistry.counter("payments.processed", "status", "success");
         this.failureCounter = meterRegistry.counter("payments.processed", "status", "failed");
-        this.processingCounter = meterRegistry.counter("payments.processing");
+        meterRegistry.gauge("payments.processing", processingGauge);
         this.processingTimer = meterRegistry.timer("payments.processing.duration");
     }
 
     @Async("paymentExecutor")
     @Transactional
     public void process(String id) {
-        processingCounter.increment();
+        processingGauge.incrementAndGet();
         Timer.Sample sample = Timer.start();
         try {
             Payment payment = repository.findById(id).orElseThrow();
@@ -55,7 +57,7 @@ public class PaymentProcessor {
             kafkaTemplate.send("payment-events", id,
                     new PaymentEvent(id, payment.getAmount(), payment.getStatus()));
         } finally {
-            processingCounter.increment(-1);
+            processingGauge.decrementAndGet();
             sample.stop(processingTimer);
         }
     }
